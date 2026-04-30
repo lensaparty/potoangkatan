@@ -25,25 +25,41 @@ export default function LoginPage() {
           className="w-full"
           disabled={loading}
           onClick={async () => {
-            setLoading(true);
-            setError("");
-            const supabase = createClient();
-            const { error: signError } = await supabase.auth.signInWithPassword({
-              email,
-              password,
-            });
-            if (signError) {
-              setError("Login failed.");
+            try {
+              setLoading(true);
+              setError("");
+              const supabase = createClient();
+              const { error: signError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+              });
+              if (signError) {
+                setError("Login gagal. Cek email/password.");
+                return;
+              }
+
+              const profilePromise = supabase
+                .from("profiles")
+                .select("role")
+                .single();
+              const timeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error("timeout")), 10000),
+              );
+              const { data } = await Promise.race([profilePromise, timeoutPromise]);
+
+              const destination =
+                data?.role === "gate_crew" || data?.role === "photographer"
+                  ? "/dashboard/scanner"
+                  : "/dashboard";
+              router.replace(destination);
+              router.refresh();
+            } catch {
+              setError(
+                "Sesi login berhasil, tapi redirect gagal. Coba refresh halaman atau login ulang.",
+              );
+            } finally {
               setLoading(false);
-              return;
             }
-            const { data } = await supabase.from("profiles").select("role").single();
-            const destination =
-              data?.role === "gate_crew" || data?.role === "photographer"
-                ? "/dashboard/scanner"
-                : "/dashboard";
-            router.push(destination);
-            router.refresh();
           }}
         >
           {loading ? "Signing in..." : "Sign In"}
